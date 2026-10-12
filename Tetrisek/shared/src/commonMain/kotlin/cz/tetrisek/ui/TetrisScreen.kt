@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -25,14 +26,13 @@ import cz.tetrisek.engine.TetrisEngine
 import cz.tetrisek.engine.TetrominoType
 import kotlinx.coroutines.delay
 
-// Základní neonové barvy (ty zůstávají přesně podle standardu Tetrisu)
 val colorCyan = Color(0xFF00FFFF)
-val colorBlue = Color(0xFF0000FF)
+val colorBlue = Color(0xFF0088FF) // Trochu světlejší modrá pro lepší záři
 val colorOrange = Color(0xFFFFA500)
 val colorYellow = Color(0xFFFFFF00)
 val colorGreen = Color(0xFF00FF00)
-val colorPurple = Color(0xFF800080)
-val colorRed = Color(0xFFFF0000)
+val colorPurple = Color(0xFFBB00FF) // Živější fialová
+val colorRed = Color(0xFFFF0033) // Agresivnější červená pro lepší neonový efekt
 
 fun getColorForType(type: TetrominoType?): Color {
     return when (type) {
@@ -52,16 +52,30 @@ fun TetrisScreen(engine: TetrisEngine) {
     val gameState by engine.gameState.collectAsState()
     val isDarkTheme = isSystemInDarkTheme()
 
-    // Upravené barvy reagující na den/noc (místo tvrdé černé je použita temně grafitová/modravá)
-    val backgroundColor = if (isDarkTheme) Color(0xFF12121A) else Color(0xFFF0F0F0)
-    val textColor = if (isDarkTheme) Color.White else Color.Black
-    val surfaceColor = if (isDarkTheme) Color(0xFF1A1A24) else Color.White
-    val borderColor = if (isDarkTheme) Color.DarkGray else Color.LightGray
-    val gridBackgroundColor = if (isDarkTheme) Color(0xFF1A1A24) else Color(0xFF222222)
-    val controlButtonColor = if (isDarkTheme) Color(0xFF2A2A35) else Color(0xFFE0E0E0)
-    val overlayColor = if (isDarkTheme) Color(0xFF12121A).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.85f)
+    // --- WOW EFEKT: Hluboký gradient na pozadí místo jedné ploché barvy ---
+    val backgroundBrush = if (isDarkTheme) {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF0A0A1A), // Velmi temná půlnoční modrá nahoře
+                Color(0xFF140024)  // Hluboká temně fialová dole
+            )
+        )
+    } else {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFFE8E8EE), // Světlejší šedomodrá nahoře
+                Color(0xFFD0D0DC)  // Mírně tmavší dole pro hloubku
+            )
+        )
+    }
 
-    // Herní smyčka
+    val textColor = if (isDarkTheme) Color.White else Color(0xFF1A1A24)
+    val surfaceColor = if (isDarkTheme) Color(0xFF1A1A24).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.8f)
+    val borderColor = if (isDarkTheme) Color.DarkGray else Color.LightGray
+    val gridBackgroundColor = if (isDarkTheme) Color(0xFF05050A).copy(alpha = 0.7f) else Color(0xFF1A1A24).copy(alpha = 0.9f)
+    val controlButtonColor = if (isDarkTheme) Color(0xFF2A2A35).copy(alpha = 0.8f) else Color(0xFFE0E0E0).copy(alpha = 0.9f)
+    val overlayColor = if (isDarkTheme) Color(0xFF0A0A1A).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.85f)
+
     LaunchedEffect(gameState.isGameOver, gameState.level, gameState.isPaused) {
         if (!gameState.isGameOver && !gameState.isPaused) {
             while (true) {
@@ -72,11 +86,10 @@ fun TetrisScreen(engine: TetrisEngine) {
         }
     }
 
-    // Aplikace systémových insets (bezpečných zón proti překrytí)
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundColor)
+            .background(brush = backgroundBrush) // Aplikace gradientního pozadí
             .windowInsetsPadding(WindowInsets.systemBars)
     ) {
         Column(
@@ -87,7 +100,7 @@ fun TetrisScreen(engine: TetrisEngine) {
             verticalArrangement = Arrangement.SpaceBetween
         ) {
 
-            // HORNÍ PANEL: Skóre, Level, Řady a tlačítko Pauza
+            // HORNÍ PANEL
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -108,7 +121,7 @@ fun TetrisScreen(engine: TetrisEngine) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // STŘEDNÍ ČÁST: Panely vlevo, Hrací plocha vpravo
+            // STŘEDNÍ ČÁST
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -116,7 +129,7 @@ fun TetrisScreen(engine: TetrisEngine) {
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Levý sloupec (Následující a Schránka)
+                // Levý sloupec
                 Column(
                     modifier = Modifier.width(80.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -129,7 +142,7 @@ fun TetrisScreen(engine: TetrisEngine) {
                         onClick = { engine.hold() },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = textColor)
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = textColor, containerColor = surfaceColor)
                     ) {
                         Text("Ulož", fontSize = 12.sp)
                     }
@@ -137,50 +150,58 @@ fun TetrisScreen(engine: TetrisEngine) {
 
                 Spacer(modifier = Modifier.width(16.dp))
 
-                // Hlavní herní plocha
+                // Hlavní herní plocha s glow efektem
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
                         .aspectRatio(0.5f)
-                        .border(2.dp, borderColor, RoundedCornerShape(4.dp))
-                        .background(gridBackgroundColor)
+                        .border(2.dp, borderColor.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                        .background(gridBackgroundColor, RoundedCornerShape(8.dp))
                 ) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val cellWidth = size.width / 10
                         val cellHeight = size.height / 20
 
+                        // Mřížka na pozadí (vykreslená první, aby byla vzadu)
+                        for (y in 0 until 20) {
+                            for (x in 0 until 10) {
+                                drawRect(
+                                    color = Color.White.copy(alpha = 0.05f), // Velmi jemná mřížka
+                                    topLeft = Offset(x * cellWidth, y * cellHeight),
+                                    size = Size(cellWidth, cellHeight),
+                                    style = Stroke(width = 1f)
+                                )
+                            }
+                        }
+
+                        // Vykreslení usazených bloků
                         for (y in 0 until 20) {
                             for (x in 0 until 10) {
                                 val type = gameState.grid[y][x]
                                 if (type != null) {
-                                    drawBlock(x, y, cellWidth, cellHeight, getColorForType(type))
-                                } else {
-                                    drawRect(
-                                        color = Color.DarkGray.copy(alpha = 0.15f),
-                                        topLeft = Offset(x * cellWidth, y * cellHeight),
-                                        size = Size(cellWidth, cellHeight),
-                                        style = Stroke(width = 1f)
-                                    )
+                                    drawGlowingBlock(x, y, cellWidth, cellHeight, getColorForType(type))
                                 }
                             }
                         }
 
+                        // Vykreslení Ducha
                         val ghost = engine.getGhostPiece()
                         if (ghost != null && !gameState.isPaused) {
-                            val color = getColorForType(ghost.type).copy(alpha = 0.4f)
+                            val color = getColorForType(ghost.type).copy(alpha = 0.3f)
                             for (pos in ghost.getAbsolutePositions()) {
                                 if (pos.y >= 0) {
-                                    drawBlock(pos.x, pos.y, cellWidth, cellHeight, color, isGhost = true)
+                                    drawGlowingBlock(pos.x, pos.y, cellWidth, cellHeight, color, isGhost = true)
                                 }
                             }
                         }
 
+                        // Vykreslení aktuální kostky
                         val current = gameState.currentPiece
                         if (current != null && !gameState.isPaused) {
                             val color = getColorForType(current.type)
                             for (pos in current.getAbsolutePositions()) {
                                 if (pos.y >= 0) {
-                                    drawBlock(pos.x, pos.y, cellWidth, cellHeight, color)
+                                    drawGlowingBlock(pos.x, pos.y, cellWidth, cellHeight, color)
                                 }
                             }
                         }
@@ -193,7 +214,7 @@ fun TetrisScreen(engine: TetrisEngine) {
                                 .background(overlayColor),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("PAUZA", color = textColor, fontSize = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = 4.sp)
+                            Text("PAUZA", color = textColor, fontSize = 32.sp, fontWeight = FontWeight.Black, letterSpacing = 6.sp)
                         }
                     }
 
@@ -221,7 +242,7 @@ fun TetrisScreen(engine: TetrisEngine) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // SPODNÍ PANEL: Grafické ovládání pomocí textových znaků
+            // SPODNÍ PANEL: Ovládání
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -229,45 +250,25 @@ fun TetrisScreen(engine: TetrisEngine) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Šipka doleva
                 IconButton(
                     onClick = { engine.moveLeft() },
-                    modifier = Modifier
-                        .size(64.dp)
-                        .background(controlButtonColor, CircleShape)
-                ) {
-                    Text("◀", fontSize = 28.sp, color = textColor)
-                }
+                    modifier = Modifier.size(64.dp).background(controlButtonColor, CircleShape)
+                ) { Text("◀", fontSize = 28.sp, color = textColor) }
 
-                // Rotace
                 IconButton(
                     onClick = { engine.rotate() },
-                    modifier = Modifier
-                        .size(64.dp)
-                        .background(controlButtonColor, CircleShape)
-                ) {
-                    Text("↻", fontSize = 28.sp, color = textColor)
-                }
+                    modifier = Modifier.size(64.dp).background(controlButtonColor, CircleShape)
+                ) { Text("↻", fontSize = 28.sp, color = textColor) }
 
-                // Šipka dolů (Hard Drop)
                 IconButton(
                     onClick = { engine.hardDrop() },
-                    modifier = Modifier
-                        .size(64.dp)
-                        .background(controlButtonColor, CircleShape)
-                ) {
-                    Text("▼", fontSize = 28.sp, color = textColor)
-                }
+                    modifier = Modifier.size(64.dp).background(controlButtonColor, CircleShape)
+                ) { Text("▼", fontSize = 28.sp, color = textColor) }
 
-                // Šipka doprava
                 IconButton(
                     onClick = { engine.moveRight() },
-                    modifier = Modifier
-                        .size(64.dp)
-                        .background(controlButtonColor, CircleShape)
-                ) {
-                    Text("▶", fontSize = 28.sp, color = textColor)
-                }
+                    modifier = Modifier.size(64.dp).background(controlButtonColor, CircleShape)
+                ) { Text("▶", fontSize = 28.sp, color = textColor) }
             }
         }
     }
@@ -276,20 +277,20 @@ fun TetrisScreen(engine: TetrisEngine) {
 @Composable
 fun ScoreBox(label: String, value: String, textColor: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-        Text(value, color = textColor, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = textColor.copy(alpha = 0.7f), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+        Text(value, color = textColor, fontSize = 24.sp, fontWeight = FontWeight.Black)
     }
 }
 
 @Composable
 fun PiecePreviewBox(label: String, type: TetrominoType?, textColor: Color, surfaceColor: Color, borderColor: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+        Text(label, color = textColor.copy(alpha = 0.7f), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
         Spacer(modifier = Modifier.height(4.dp))
         Box(
             modifier = Modifier
                 .size(60.dp)
-                .border(1.dp, borderColor, RoundedCornerShape(8.dp))
+                .border(1.dp, borderColor.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
                 .background(surfaceColor, RoundedCornerShape(8.dp)),
             contentAlignment = Alignment.Center
         ) {
@@ -301,7 +302,7 @@ fun PiecePreviewBox(label: String, type: TetrominoType?, textColor: Color, surfa
                     val offsetY = size.height / 2f
 
                     for (pos in blocks) {
-                        drawBlock(
+                        drawGlowingBlock(
                             x = pos.x,
                             y = pos.y,
                             width = cellSize,
@@ -317,7 +318,8 @@ fun PiecePreviewBox(label: String, type: TetrominoType?, textColor: Color, surfa
     }
 }
 
-fun DrawScope.drawBlock(
+// --- WOW EFEKT: Nová funkce pro vykreslení bloků se září (Glow Effect) ---
+fun DrawScope.drawGlowingBlock(
     x: Int, y: Int,
     width: Float, height: Float,
     color: Color,
@@ -327,28 +329,49 @@ fun DrawScope.drawBlock(
 ) {
     val posX = (x * width) + offsetX
     val posY = (y * height) + offsetY
+    val padding = 1f // Jemná mezera mezi bloky
 
     if (isGhost) {
+        // Duch je jen velmi jemný obrys
         drawRoundRect(
             color = color,
-            topLeft = Offset(posX + 2f, posY + 2f),
-            size = Size(width - 4f, height - 4f),
+            topLeft = Offset(posX + padding, posY + padding),
+            size = Size(width - (padding*2), height - (padding*2)),
             cornerRadius = CornerRadius(4f, 4f),
             style = Stroke(width = 2f)
         )
     } else {
+        // 1. ZÁŘE (Vnější měkký, poloprůhledný obrys - větší)
         drawRoundRect(
-            color = color,
-            topLeft = Offset(posX + 1f, posY + 1f),
-            size = Size(width - 2f, height - 2f),
+            color = color.copy(alpha = 0.2f),
+            topLeft = Offset(posX - 2f, posY - 2f),
+            size = Size(width + 4f, height + 4f),
+            cornerRadius = CornerRadius(6f, 6f)
+        )
+
+        // 2. STŘEDNÍ VRSTVA (Poloprůhledné tělo bloku)
+        drawRoundRect(
+            color = color.copy(alpha = 0.6f),
+            topLeft = Offset(posX + padding, posY + padding),
+            size = Size(width - (padding*2), height - (padding*2)),
             cornerRadius = CornerRadius(4f, 4f)
         )
+
+        // 3. JÁDRO NEONU (Zářivě jasný střed)
+        val innerPadding = width * 0.2f
         drawRoundRect(
-            color = Color.White.copy(alpha = 0.4f),
-            topLeft = Offset(posX + 3f, posY + 3f),
-            size = Size(width - 6f, height - 6f),
-            cornerRadius = CornerRadius(2f, 2f),
-            style = Stroke(width = 1f)
+            color = color,
+            topLeft = Offset(posX + innerPadding, posY + innerPadding),
+            size = Size(width - (innerPadding*2), height - (innerPadding*2)),
+            cornerRadius = CornerRadius(2f, 2f)
+        )
+
+        // 4. LESK (Bílé odlesky nahoře vlevo pro dodání plasticity)
+        drawRoundRect(
+            color = Color.White.copy(alpha = 0.5f),
+            topLeft = Offset(posX + padding + 1f, posY + padding + 1f),
+            size = Size((width - (padding*2)) / 3f, (height - (padding*2)) / 3f),
+            cornerRadius = CornerRadius(1f, 1f)
         )
     }
 }
