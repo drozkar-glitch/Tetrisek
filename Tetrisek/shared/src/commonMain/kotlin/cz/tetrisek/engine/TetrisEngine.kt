@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlin.random.Random
 
-// --- DEFINICE KOSTEK A TVARŮ (Toto v předchozím kódu chybělo) ---
+// --- DEFINICE KOSTEK A TVARŮ ---
 enum class TetrominoType { I, J, L, O, S, T, Z }
 
 data class Pos(val x: Int, val y: Int)
@@ -42,7 +42,6 @@ data class Tetromino(
         }
     }
 }
-// ---------------------------------------------------------------
 
 // Datová třída reprezentující stav hry
 data class GameState(
@@ -80,7 +79,6 @@ class TetrisEngine {
         canHold = true
     }
 
-    // --- FUNKCE PRO PAUZU ---
     fun togglePause() {
         if (!_gameState.value.isGameOver) {
             _gameState.update { it.copy(isPaused = !it.isPaused) }
@@ -98,7 +96,6 @@ class TetrisEngine {
             _gameState.update { it.copy(isPaused = false) }
         }
     }
-    // -------------------------
 
     fun moveLeft() {
         if (_gameState.value.isGameOver || _gameState.value.isPaused) return
@@ -133,11 +130,14 @@ class TetrisEngine {
     fun rotate() {
         if (_gameState.value.isGameOver || _gameState.value.isPaused) return
         val current = _gameState.value.currentPiece ?: return
-        val newPiece = current.copy(rotation = (current.rotation + 1) % 4)
+
+        // Změna směru rotace (přidáním 3 namísto 1 získáme rotaci proti směru hodinových ručiček)
+        val newPiece = current.copy(rotation = (current.rotation + 3) % 4)
+
         if (isValidPosition(newPiece)) {
             _gameState.update { it.copy(currentPiece = newPiece) }
         } else {
-            // "Wall kick" (odsunutí od zdi při rotaci)
+            // "Wall kick" (odsunutí od zdi)
             val kickedLeft = newPiece.copy(x = newPiece.x - 1)
             if (isValidPosition(kickedLeft)) {
                 _gameState.update { it.copy(currentPiece = kickedLeft) }
