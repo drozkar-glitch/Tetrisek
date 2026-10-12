@@ -6,259 +6,218 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlin.random.Random
 
-enum class TetrominoType { I, J, L, O, S, T, Z }
-
-data class Position(val x: Int, val y: Int)
-
-// Tvar definujeme jako seznam bloků relativně ke středu rotace (0,0)
-data class Tetromino(val type: TetrominoType, val blocks: List<Position>, val position: Position) {
-    fun getAbsolutePositions(): List<Position> = blocks.map { Position(it.x + position.x, it.y + position.y) }
-}
-
-val SHAPES = mapOf(
-    TetrominoType.I to listOf(Position(-1, 0), Position(0, 0), Position(1, 0), Position(2, 0)),
-    TetrominoType.J to listOf(Position(-1, -1), Position(-1, 0), Position(0, 0), Position(1, 0)),
-    TetrominoType.L to listOf(Position(1, -1), Position(-1, 0), Position(0, 0), Position(1, 0)),
-    TetrominoType.O to listOf(Position(0, 0), Position(1, 0), Position(0, 1), Position(1, 1)),
-    TetrominoType.S to listOf(Position(0, 0), Position(1, 0), Position(-1, 1), Position(0, 1)),
-    TetrominoType.T to listOf(Position(-1, 0), Position(0, 0), Position(1, 0), Position(0, 1)),
-    TetrominoType.Z to listOf(Position(-1, 0), Position(0, 0), Position(0, 1), Position(1, 1))
-)
-
+// Datová třída reprezentující stav hry
 data class GameState(
-    val grid: List<List<TetrominoType?>> = List(20) { List(10) { null } },
+    val grid: Array<Array<TetrominoType?>> = Array(20) { Array(10) { null } },
     val currentPiece: Tetromino? = null,
     val nextPiece: TetrominoType? = null,
     val holdPiece: TetrominoType? = null,
-    val canHold: Boolean = true,
     val score: Int = 0,
     val level: Int = 1,
     val linesCleared: Int = 0,
-    val isGameOver: Boolean = false
+    val isGameOver: Boolean = false,
+    val isPaused: Boolean = false // <-- PŘIDÁNO: Sledování pauzy
 )
 
 class TetrisEngine {
-    private val width = 10
-    private val height = 20
-
     private val _gameState = MutableStateFlow(GameState())
     val gameState: StateFlow<GameState> = _gameState.asStateFlow()
 
+    private var canHold = true
+
     init {
-        spawnPiece()
+        startNewGame()
     }
 
-    private fun getRandomType(): TetrominoType = TetrominoType.entries[Random.nextInt(TetrominoType.entries.size)]
+    fun startNewGame() {
+        val firstPiece = generateRandomPieceType()
+        val nextPieceType = generateRandomPieceType()
 
-    private fun spawnPiece() {
-        val state = _gameState.value
-        if (state.isGameOver) return
+        _gameState.update {
+            GameState(
+                currentPiece = Tetromino(firstPiece),
+                nextPiece = nextPieceType
+            )
+        }
+        canHold = true
+    }
 
-        val next = state.nextPiece ?: getRandomType()
-        val newNext = getRandomType()
-
-        val newPiece = Tetromino(
-            type = next,
-            blocks = SHAPES[next]!!,
-            position = Position(width / 2 - 1, 1)
-        )
-
-        if (checkCollision(newPiece, state.grid)) {
-            _gameState.update { it.copy(isGameOver = true, currentPiece = newPiece) }
-        } else {
-            _gameState.update {
-                it.copy(
-                    currentPiece = newPiece,
-                    nextPiece = newNext,
-                    canHold = true
-                )
-            }
+    // --- NOVÉ FUNKCE PRO PAUZU ---
+    fun togglePause() {
+        if (!_gameState.value.isGameOver) {
+            _gameState.update { it.copy(isPaused = !it.isPaused) }
         }
     }
 
+    fun pause() {
+        if (!_gameState.value.isGameOver && !_gameState.value.isPaused) {
+            _gameState.update { it.copy(isPaused = true) }
+        }
+    }
+
+    fun resume() {
+        if (!_gameState.value.isGameOver && _gameState.value.isPaused) {
+            _gameState.update { it.copy(isPaused = false) }
+        }
+    }
+    // ------------------------------
+
     fun moveLeft() {
-        val state = _gameState.value
-        val piece = state.currentPiece ?: return
-        val moved = piece.copy(position = Position(piece.position.x - 1, piece.position.y))
-        if (!checkCollision(moved, state.grid)) {
-            _gameState.update { it.copy(currentPiece = moved) }
+        if (_gameState.value.isGameOver || _gameState.value.isPaused) return // <-- KONTROLA PAUZY
+        val current = _gameState.value.currentPiece ?: return
+        val newPiece = current.copy(x = current.x - 1)
+        if (isValidPosition(newPiece)) {
+            _gameState.update { it.copy(currentPiece = newPiece) }
         }
     }
 
     fun moveRight() {
-        val state = _gameState.value
-        val piece = state.currentPiece ?: return
-        val moved = piece.copy(position = Position(piece.position.x + 1, piece.position.y))
-        if (!checkCollision(moved, state.grid)) {
-            _gameState.update { it.copy(currentPiece = moved) }
+        if (_gameState.value.isGameOver || _gameState.value.isPaused) return // <-- KONTROLA PAUZY
+        val current = _gameState.value.currentPiece ?: return
+        val newPiece = current.copy(x = current.x + 1)
+        if (isValidPosition(newPiece)) {
+            _gameState.update { it.copy(currentPiece = newPiece) }
         }
     }
 
-    fun moveDown(): Boolean {
-        val state = _gameState.value
-        val piece = state.currentPiece ?: return false
-        val moved = piece.copy(position = Position(piece.position.x, piece.position.y + 1))
+    fun moveDown() {
+        if (_gameState.value.isGameOver || _gameState.value.isPaused) return // <-- KONTROLA PAUZY
+        val current = _gameState.value.currentPiece ?: return
+        val newPiece = current.copy(y = current.y + 1)
 
-        return if (!checkCollision(moved, state.grid)) {
-            _gameState.update { it.copy(currentPiece = moved) }
-            true
+        if (isValidPosition(newPiece)) {
+            _gameState.update { it.copy(currentPiece = newPiece) }
         } else {
             lockPiece()
-            false
+        }
+    }
+
+    fun rotate() {
+        if (_gameState.value.isGameOver || _gameState.value.isPaused) return // <-- KONTROLA PAUZY
+        val current = _gameState.value.currentPiece ?: return
+        val newPiece = current.copy(rotation = (current.rotation + 1) % 4)
+        if (isValidPosition(newPiece)) {
+            _gameState.update { it.copy(currentPiece = newPiece) }
+        } else {
+            // Jednoduchý "wall kick" (odsunutí od zdi)
+            val kickedLeft = newPiece.copy(x = newPiece.x - 1)
+            if (isValidPosition(kickedLeft)) {
+                _gameState.update { it.copy(currentPiece = kickedLeft) }
+                return
+            }
+            val kickedRight = newPiece.copy(x = newPiece.x + 1)
+            if (isValidPosition(kickedRight)) {
+                _gameState.update { it.copy(currentPiece = kickedRight) }
+            }
         }
     }
 
     fun hardDrop() {
-        var dropped = true
-        var dropDistance = 0
-        while (dropped) {
-            val state = _gameState.value
-            val piece = state.currentPiece ?: break
-            val moved = piece.copy(position = Position(piece.position.x, piece.position.y + 1))
-            if (!checkCollision(moved, state.grid)) {
-                _gameState.update { it.copy(currentPiece = moved) }
-                dropDistance++
-            } else {
-                dropped = false
-            }
+        if (_gameState.value.isGameOver || _gameState.value.isPaused) return // <-- KONTROLA PAUZY
+        var current = _gameState.value.currentPiece ?: return
+        while (isValidPosition(current.copy(y = current.y + 1))) {
+            current = current.copy(y = current.y + 1)
         }
-        // Body navíc za rychlý pád
-        _gameState.update { it.copy(score = it.score + (dropDistance * 2)) }
+        _gameState.update { it.copy(currentPiece = current) }
         lockPiece()
     }
 
-    fun rotate() {
-        val state = _gameState.value
-        val piece = state.currentPiece ?: return
-        if (piece.type == TetrominoType.O) return
-
-        // Rotace o 90 stupňů po směru hodinových ručiček
-        val rotatedBlocks = piece.blocks.map { Position(-it.y, it.x) }
-        val rotatedPiece = piece.copy(blocks = rotatedBlocks)
-
-        // Jednoduchý "wall kick" – pokud se po rotaci překrývá, zkusíme ji posunout
-        var finalPiece = rotatedPiece
-        if (checkCollision(finalPiece, state.grid)) {
-            finalPiece = rotatedPiece.copy(position = Position(piece.position.x + 1, piece.position.y))
-            if (checkCollision(finalPiece, state.grid)) {
-                finalPiece = rotatedPiece.copy(position = Position(piece.position.x - 1, piece.position.y))
-                if (checkCollision(finalPiece, state.grid)) {
-                    return // Nelze rotovat, chybí místo
-                }
-            }
-        }
-        _gameState.update { it.copy(currentPiece = finalPiece) }
-    }
-
     fun hold() {
-        val state = _gameState.value
-        if (!state.canHold || state.currentPiece == null) return
+        if (_gameState.value.isGameOver || !canHold || _gameState.value.isPaused) return // <-- KONTROLA PAUZY
+        val currentType = _gameState.value.currentPiece?.type ?: return
+        val holdType = _gameState.value.holdPiece
 
-        val currentType = state.currentPiece.type
-        val heldType = state.holdPiece
-
-        if (heldType == null) {
-            _gameState.update {
-                it.copy(
-                    holdPiece = currentType,
-                    currentPiece = null,
-                    canHold = false
-                )
-            }
-            spawnPiece()
-        } else {
-            val newPiece = Tetromino(
-                type = heldType,
-                blocks = SHAPES[heldType]!!,
-                position = Position(width / 2 - 1, 1)
+        _gameState.update {
+            it.copy(
+                holdPiece = currentType,
+                currentPiece = if (holdType != null) Tetromino(holdType) else Tetromino(it.nextPiece ?: generateRandomPieceType()),
+                nextPiece = if (holdType != null) it.nextPiece else generateRandomPieceType()
             )
-            _gameState.update {
-                it.copy(
-                    holdPiece = currentType,
-                    currentPiece = newPiece,
-                    canHold = false
-                )
-            }
         }
+        canHold = false
     }
 
     fun getGhostPiece(): Tetromino? {
-        val state = _gameState.value
-        var piece = state.currentPiece ?: return null
-        while (true) {
-            val moved = piece.copy(position = Position(piece.position.x, piece.position.y + 1))
-            if (checkCollision(moved, state.grid)) {
-                break
-            }
-            piece = moved
+        val current = _gameState.value.currentPiece ?: return null
+        var ghost = current.copy()
+        while (isValidPosition(ghost.copy(y = ghost.y + 1))) {
+            ghost = ghost.copy(y = ghost.y + 1)
         }
-        return piece
+        return ghost
     }
 
     private fun lockPiece() {
-        val state = _gameState.value
-        val piece = state.currentPiece ?: return
+        val current = _gameState.value.currentPiece ?: return
+        val newGrid = _gameState.value.grid.map { it.clone() }.toTypedArray()
 
-        val newGrid = state.grid.map { it.toMutableList() }.toMutableList()
-
-        for (pos in piece.getAbsolutePositions()) {
-            if (pos.y in 0 until height && pos.x in 0 until width) {
-                newGrid[pos.y][pos.x] = piece.type
+        for (pos in current.getAbsolutePositions()) {
+            if (pos.y < 0) {
+                _gameState.update { it.copy(isGameOver = true) }
+                return
+            }
+            if (pos.y in 0..19 && pos.x in 0..9) {
+                newGrid[pos.y][pos.x] = current.type
             }
         }
 
-        _gameState.update { it.copy(grid = newGrid, currentPiece = null) }
-        clearLines()
-        spawnPiece()
+        val clearedLines = clearLines(newGrid)
+        val newScore = _gameState.value.score + calculateScore(clearedLines, _gameState.value.level)
+        val newLinesCleared = _gameState.value.linesCleared + clearedLines
+        val newLevel = (newLinesCleared / 10) + 1
+
+        _gameState.update {
+            it.copy(
+                grid = newGrid,
+                currentPiece = Tetromino(it.nextPiece ?: generateRandomPieceType()),
+                nextPiece = generateRandomPieceType(),
+                score = newScore,
+                level = newLevel,
+                linesCleared = newLinesCleared
+            )
+        }
+        canHold = true
     }
 
-    private fun clearLines() {
-        val state = _gameState.value
-        val newGrid = state.grid.filter { row -> row.any { it == null } }.map { it.toMutableList() }.toMutableList()
-        val linesCleared = height - newGrid.size
-
-        if (linesCleared > 0) {
-            while (newGrid.size < height) {
-                newGrid.add(0, MutableList(width) { null })
-            }
-
-            val newTotalLines = state.linesCleared + linesCleared
-            val newLevel = (newTotalLines / 10) + 1
-
-            val basePoints = when (linesCleared) {
-                1 -> 40
-                2 -> 100
-                3 -> 300
-                4 -> 1200
-                else -> 0
-            }
-            val pointsEarned = basePoints * state.level
-
-            _gameState.update {
-                it.copy(
-                    grid = newGrid,
-                    score = it.score + pointsEarned,
-                    linesCleared = newTotalLines,
-                    level = newLevel
-                )
+    private fun clearLines(grid: Array<Array<TetrominoType?>>): Int {
+        var linesCleared = 0
+        for (y in grid.indices.reversed()) {
+            if (grid[y].all { it != null }) {
+                linesCleared++
+                for (i in y downTo 1) {
+                    grid[i] = grid[i - 1].clone()
+                }
+                grid[0] = Array(10) { null }
             }
         }
+        return linesCleared
     }
 
-    private fun checkCollision(piece: Tetromino, grid: List<List<TetrominoType?>>): Boolean {
-        for (pos in piece.getAbsolutePositions()) {
-            if (pos.x < 0 || pos.x >= width || pos.y >= height) {
-                return true
-            }
-            if (pos.y >= 0 && grid[pos.y][pos.x] != null) {
-                return true
-            }
+    private fun calculateScore(lines: Int, level: Int): Int {
+        val basePoints = when (lines) {
+            1 -> 40
+            2 -> 100
+            3 -> 300
+            4 -> 1200
+            else -> 0
         }
-        return false
+        return basePoints * level
+    }
+
+    private fun isValidPosition(piece: Tetromino): Boolean {
+        for (pos in piece.getAbsolutePositions()) {
+            if (pos.x < 0 || pos.x >= 10 || pos.y >= 20) return false
+            if (pos.y >= 0 && _gameState.value.grid[pos.y][pos.x] != null) return false
+        }
+        return true
+    }
+
+    private fun generateRandomPieceType(): TetrominoType {
+        val types = TetrominoType.entries.toTypedArray()
+        return types[Random.nextInt(types.size)]
     }
 
     fun restart() {
         _gameState.value = GameState()
-        spawnPiece()
+        startNewGame()
     }
 }

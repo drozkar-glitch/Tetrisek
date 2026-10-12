@@ -2,17 +2,33 @@ package cz.tetrisek
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import cz.tetrisek.engine.TetrisEngine
 import cz.tetrisek.ui.TetrisScreen
 
 @Composable
 fun App() {
     MaterialTheme {
-        // Inicializace herního enginu, která se provede pouze jednou při startu
         val engine = remember { TetrisEngine() }
+        val lifecycleOwner = LocalLifecycleOwner.current
 
-        // Spuštění naší hlavní neonové herní obrazovky
+        // Automatická pauza při opuštění obrazovky (hovor, minimalizace)
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
+                    engine.pause()
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
+        }
+
         TetrisScreen(engine)
     }
 }

@@ -3,11 +3,13 @@ package cz.tetrisek.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,7 +27,7 @@ import cz.tetrisek.engine.TetrisEngine
 import cz.tetrisek.engine.TetrominoType
 import kotlinx.coroutines.delay
 
-// Barvy pro neonový vzhled
+// Základní neonové barvy
 val colorCyan = Color(0xFF00FFFF)
 val colorBlue = Color(0xFF0000FF)
 val colorOrange = Color(0xFFFFA500)
@@ -50,12 +52,20 @@ fun getColorForType(type: TetrominoType?): Color {
 @Composable
 fun TetrisScreen(engine: TetrisEngine) {
     val gameState by engine.gameState.collectAsState()
+    val isDarkTheme = isSystemInDarkTheme()
 
-    // Herní smyčka pro automatický padající pohyb
-    LaunchedEffect(gameState.isGameOver, gameState.level) {
-        if (!gameState.isGameOver) {
+    // Barvy reagující na den/noc
+    val backgroundColor = if (isDarkTheme) Color.Black else Color(0xFFF0F0F0)
+    val textColor = if (isDarkTheme) Color.White else Color.Black
+    val surfaceColor = if (isDarkTheme) Color(0xFF111111) else Color.White
+    val borderColor = if (isDarkTheme) Color.DarkGray else Color.LightGray
+    val gridBackgroundColor = if (isDarkTheme) Color(0xFF111111) else Color(0xFF222222) // Plocha zůstává vždy tmavší pro kontrast neonů
+    val controlButtonColor = if (isDarkTheme) Color(0xFF333333) else Color(0xFFE0E0E0)
+
+    // Herní smyčka
+    LaunchedEffect(gameState.isGameOver, gameState.level, gameState.isPaused) {
+        if (!gameState.isGameOver && !gameState.isPaused) {
             while (true) {
-                // Zvyšování rychlosti podle úrovně, maximální rychlost je 100ms
                 val speed = (1000 - (gameState.level - 1) * 50).coerceAtLeast(100).toLong()
                 delay(speed)
                 engine.moveDown()
@@ -63,164 +73,232 @@ fun TetrisScreen(engine: TetrisEngine) {
         }
     }
 
-    Column(
+    // Aplikace systémových insets (bezpečných zón proti překrytí navigačními tlačítky)
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
+            .background(backgroundColor)
+            .windowInsetsPadding(WindowInsets.systemBars)
     ) {
-        // Horní panel: Skóre, Level a Řady
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            ScoreBox("SKÓRE", gameState.score.toString())
-            ScoreBox("LEVEL", gameState.level.toString())
-            ScoreBox("ŘADY", gameState.linesCleared.toString())
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Střední část: Hold, Hrací plocha, Next
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Odložená kostka
-            PiecePreviewBox("HOLD", gameState.holdPiece)
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Hlavní herní plocha
-            Box(
-                modifier = Modifier
-                    .aspectRatio(0.5f) // Poměr stran 10x20
-                    .border(2.dp, Color.DarkGray, RoundedCornerShape(4.dp))
-                    .background(Color(0xFF111111))
-            ) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val cellWidth = size.width / 10
-                    val cellHeight = size.height / 20
-
-                    // Vykreslení usazených bloků
-                    for (y in 0 until 20) {
-                        for (x in 0 until 10) {
-                            val type = gameState.grid[y][x]
-                            if (type != null) {
-                                drawBlock(x, y, cellWidth, cellHeight, getColorForType(type))
-                            } else {
-                                // Mřížka na pozadí pro lepší přehlednost
-                                drawRect(
-                                    color = Color.DarkGray.copy(alpha = 0.2f),
-                                    topLeft = Offset(x * cellWidth, y * cellHeight),
-                                    size = Size(cellWidth, cellHeight),
-                                    style = Stroke(width = 1f)
-                                )
-                            }
-                        }
-                    }
-
-                    // Vykreslení "Ducha" (Ghost Piece)
-                    val ghost = engine.getGhostPiece()
-                    if (ghost != null) {
-                        val color = getColorForType(ghost.type).copy(alpha = 0.4f)
-                        for (pos in ghost.getAbsolutePositions()) {
-                            if (pos.y >= 0) {
-                                drawBlock(pos.x, pos.y, cellWidth, cellHeight, color, isGhost = true)
-                            }
-                        }
-                    }
-
-                    // Vykreslení aktuálně padající kostky
-                    val current = gameState.currentPiece
-                    if (current != null) {
-                        val color = getColorForType(current.type)
-                        for (pos in current.getAbsolutePositions()) {
-                            if (pos.y >= 0) {
-                                drawBlock(pos.x, pos.y, cellWidth, cellHeight, color)
-                            }
-                        }
-                    }
-                }
-
-                if (gameState.isGameOver) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.8f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("KONEC HRY", color = colorRed, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Button(
-                                onClick = { engine.restart() },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF333333))
-                            ) {
-                                Text("Hrát znovu", color = Color.White)
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Následující kostka
-            PiecePreviewBox("NEXT", gameState.nextPiece)
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Spodní panel: Ovládací tlačítka
         Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
+
+            // HORNÍ PANEL: Skóre, Level, Řady a tlačítko Pauza
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                ControlButton("HOLD") { engine.hold() }
-                ControlButton("OTOČ") { engine.rotate() }
-                ControlButton("PÁD") { engine.hardDrop() }
+                ScoreBox("SKÓRE", gameState.score.toString(), textColor)
+                ScoreBox("LEVEL", gameState.level.toString(), textColor)
+                ScoreBox("ŘADY", gameState.linesCleared.toString(), textColor)
+
+                IconButton(onClick = { engine.togglePause() }) {
+                    Icon(
+                        imageVector = if (gameState.isPaused) Icons.Filled.PlayArrow else Icons.Filled.Menu,
+                        contentDescription = "Pauza",
+                        tint = textColor
+                    )
+                }
             }
+
             Spacer(modifier = Modifier.height(16.dp))
+
+            // STŘEDNÍ ČÁST: Panely (Next, Hold) vlevo, Hrací plocha vpravo
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                ControlButton("← VLEVO", modifier = Modifier.weight(1f)) { engine.moveLeft() }
+                // Levý sloupec (Následující a Schránka)
+                Column(
+                    modifier = Modifier.width(80.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    PiecePreviewBox("NÁSLEDUJÍCÍ", gameState.nextPiece, textColor, surfaceColor, borderColor)
+                    PiecePreviewBox("SCHRÁNKA", gameState.holdPiece, textColor, surfaceColor, borderColor)
+
+                    // Ruční tlačítko Hold (nahrazuje původní textové)
+                    OutlinedButton(
+                        onClick = { engine.hold() },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = textColor)
+                    ) {
+                        Text("Ulož", fontSize = 12.sp)
+                    }
+                }
+
                 Spacer(modifier = Modifier.width(16.dp))
-                ControlButton("VPRAVO →", modifier = Modifier.weight(1f)) { engine.moveRight() }
+
+                // Hlavní herní plocha
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .aspectRatio(0.5f) // Poměr stran 10x20
+                        .border(2.dp, borderColor, RoundedCornerShape(4.dp))
+                        .background(gridBackgroundColor)
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val cellWidth = size.width / 10
+                        val cellHeight = size.height / 20
+
+                        // Vykreslení usazených bloků
+                        for (y in 0 until 20) {
+                            for (x in 0 until 10) {
+                                val type = gameState.grid[y][x]
+                                if (type != null) {
+                                    drawBlock(x, y, cellWidth, cellHeight, getColorForType(type))
+                                } else {
+                                    // Mřížka na pozadí
+                                    drawRect(
+                                        color = Color.DarkGray.copy(alpha = 0.2f),
+                                        topLeft = Offset(x * cellWidth, y * cellHeight),
+                                        size = Size(cellWidth, cellHeight),
+                                        style = Stroke(width = 1f)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Vykreslení "Ducha" (Ghost Piece)
+                        val ghost = engine.getGhostPiece()
+                        if (ghost != null && !gameState.isPaused) {
+                            val color = getColorForType(ghost.type).copy(alpha = 0.4f)
+                            for (pos in ghost.getAbsolutePositions()) {
+                                if (pos.y >= 0) {
+                                    drawBlock(pos.x, pos.y, cellWidth, cellHeight, color, isGhost = true)
+                                }
+                            }
+                        }
+
+                        // Vykreslení aktuálně padající kostky
+                        val current = gameState.currentPiece
+                        if (current != null && !gameState.isPaused) {
+                            val color = getColorForType(current.type)
+                            for (pos in current.getAbsolutePositions()) {
+                                if (pos.y >= 0) {
+                                    drawBlock(pos.x, pos.y, cellWidth, cellHeight, color)
+                                }
+                            }
+                        }
+                    }
+
+                    // Překryv pro PAUZU
+                    if (gameState.isPaused && !gameState.isGameOver) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.7f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("PAUZA", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = 4.sp)
+                        }
+                    }
+
+                    // Překryv pro KONEC HRY
+                    if (gameState.isGameOver) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.8f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("KONEC HRY", color = colorRed, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Button(
+                                    onClick = { engine.restart() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = colorCyan, contentColor = Color.Black)
+                                ) {
+                                    Text("Hrát znovu", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // SPODNÍ PANEL: Nové grafické ovládání (Ikony místo obdélníků s textem)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Šipka doleva
+                IconButton(
+                    onClick = { engine.moveLeft() },
+                    modifier = Modifier
+                        .size(64.dp)
+                        .background(controlButtonColor, CircleShape)
+                ) {
+                    Icon(Icons.Filled.KeyboardArrowLeft, contentDescription = "Vlevo", tint = textColor, modifier = Modifier.size(40.dp))
+                }
+
+                // Rotace
+                IconButton(
+                    onClick = { engine.rotate() },
+                    modifier = Modifier
+                        .size(64.dp)
+                        .background(controlButtonColor, CircleShape)
+                ) {
+                    Icon(Icons.Filled.Refresh, contentDescription = "Rotace", tint = textColor, modifier = Modifier.size(36.dp))
+                }
+
+                // Šipka dolů (Hard Drop)
+                IconButton(
+                    onClick = { engine.hardDrop() },
+                    modifier = Modifier
+                        .size(64.dp)
+                        .background(controlButtonColor, CircleShape)
+                ) {
+                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Pád", tint = textColor, modifier = Modifier.size(40.dp))
+                }
+
+                // Šipka doprava
+                IconButton(
+                    onClick = { engine.moveRight() },
+                    modifier = Modifier
+                        .size(64.dp)
+                        .background(controlButtonColor, CircleShape)
+                ) {
+                    Icon(Icons.Filled.KeyboardArrowRight, contentDescription = "Vpravo", tint = textColor, modifier = Modifier.size(40.dp))
+                }
             }
         }
     }
 }
 
 @Composable
-fun ScoreBox(label: String, value: String) {
+fun ScoreBox(label: String, value: String, textColor: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, color = Color.Gray, fontSize = 12.sp)
-        Text(value, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+        Text(value, color = textColor, fontSize = 20.sp, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
-fun PiecePreviewBox(label: String, type: TetrominoType?) {
+fun PiecePreviewBox(label: String, type: TetrominoType?, textColor: Color, surfaceColor: Color, borderColor: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, color = Color.Gray, fontSize = 12.sp)
+        Text(label, color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
         Spacer(modifier = Modifier.height(4.dp))
         Box(
             modifier = Modifier
                 .size(60.dp)
-                .border(1.dp, Color.DarkGray, RoundedCornerShape(4.dp))
-                .background(Color(0xFF111111)),
+                .border(1.dp, borderColor, RoundedCornerShape(8.dp))
+                .background(surfaceColor, RoundedCornerShape(8.dp)),
             contentAlignment = Alignment.Center
         ) {
             if (type != null) {
@@ -247,18 +325,6 @@ fun PiecePreviewBox(label: String, type: TetrominoType?) {
     }
 }
 
-@Composable
-fun ControlButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222222)),
-        shape = RoundedCornerShape(8.dp),
-        modifier = modifier.height(60.dp)
-    ) {
-        Text(text, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-    }
-}
-
 fun DrawScope.drawBlock(
     x: Int, y: Int,
     width: Float, height: Float,
@@ -271,7 +337,6 @@ fun DrawScope.drawBlock(
     val posY = (y * height) + offsetY
 
     if (isGhost) {
-        // Vykreslení obrysu pro "ducha"
         drawRoundRect(
             color = color,
             topLeft = Offset(posX + 2f, posY + 2f),
@@ -280,14 +345,12 @@ fun DrawScope.drawBlock(
             style = Stroke(width = 2f)
         )
     } else {
-        // Vykreslení pevného bloku
         drawRoundRect(
             color = color,
             topLeft = Offset(posX + 1f, posY + 1f),
             size = Size(width - 2f, height - 2f),
             cornerRadius = CornerRadius(4f, 4f)
         )
-        // Efekt neonu - vnitřní záře/zvýraznění
         drawRoundRect(
             color = Color.White.copy(alpha = 0.4f),
             topLeft = Offset(posX + 3f, posY + 3f),
