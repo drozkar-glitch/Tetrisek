@@ -25,7 +25,7 @@ import cz.tetrisek.engine.TetrisEngine
 import cz.tetrisek.engine.TetrominoType
 import kotlinx.coroutines.delay
 
-// Základní neonové barvy
+// Základní neonové barvy (ty zůstávají přesně podle standardu Tetrisu)
 val colorCyan = Color(0xFF00FFFF)
 val colorBlue = Color(0xFF0000FF)
 val colorOrange = Color(0xFFFFA500)
@@ -52,13 +52,14 @@ fun TetrisScreen(engine: TetrisEngine) {
     val gameState by engine.gameState.collectAsState()
     val isDarkTheme = isSystemInDarkTheme()
 
-    // Barvy reagující na den/noc
-    val backgroundColor = if (isDarkTheme) Color.Black else Color(0xFFF0F0F0)
+    // Upravené barvy reagující na den/noc (místo tvrdé černé je použita temně grafitová/modravá)
+    val backgroundColor = if (isDarkTheme) Color(0xFF12121A) else Color(0xFFF0F0F0)
     val textColor = if (isDarkTheme) Color.White else Color.Black
-    val surfaceColor = if (isDarkTheme) Color(0xFF111111) else Color.White
+    val surfaceColor = if (isDarkTheme) Color(0xFF1A1A24) else Color.White
     val borderColor = if (isDarkTheme) Color.DarkGray else Color.LightGray
-    val gridBackgroundColor = if (isDarkTheme) Color(0xFF111111) else Color(0xFF222222)
-    val controlButtonColor = if (isDarkTheme) Color(0xFF333333) else Color(0xFFE0E0E0)
+    val gridBackgroundColor = if (isDarkTheme) Color(0xFF1A1A24) else Color(0xFF222222)
+    val controlButtonColor = if (isDarkTheme) Color(0xFF2A2A35) else Color(0xFFE0E0E0)
+    val overlayColor = if (isDarkTheme) Color(0xFF12121A).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.85f)
 
     // Herní smyčka
     LaunchedEffect(gameState.isGameOver, gameState.level, gameState.isPaused) {
@@ -155,7 +156,7 @@ fun TetrisScreen(engine: TetrisEngine) {
                                     drawBlock(x, y, cellWidth, cellHeight, getColorForType(type))
                                 } else {
                                     drawRect(
-                                        color = Color.DarkGray.copy(alpha = 0.2f),
+                                        color = Color.DarkGray.copy(alpha = 0.15f),
                                         topLeft = Offset(x * cellWidth, y * cellHeight),
                                         size = Size(cellWidth, cellHeight),
                                         style = Stroke(width = 1f)
@@ -189,10 +190,10 @@ fun TetrisScreen(engine: TetrisEngine) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.7f)),
+                                .background(overlayColor),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("PAUZA", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = 4.sp)
+                            Text("PAUZA", color = textColor, fontSize = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = 4.sp)
                         }
                     }
 
@@ -200,7 +201,7 @@ fun TetrisScreen(engine: TetrisEngine) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.8f)),
+                                .background(overlayColor),
                             contentAlignment = Alignment.Center
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
