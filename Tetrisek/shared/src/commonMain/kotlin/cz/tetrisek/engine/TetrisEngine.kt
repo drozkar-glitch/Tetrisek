@@ -6,6 +6,44 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlin.random.Random
 
+// --- DEFINICE KOSTEK A TVARŮ (Toto v předchozím kódu chybělo) ---
+enum class TetrominoType { I, J, L, O, S, T, Z }
+
+data class Pos(val x: Int, val y: Int)
+
+val SHAPES = mapOf(
+    TetrominoType.I to listOf(Pos(-1, 0), Pos(0, 0), Pos(1, 0), Pos(2, 0)),
+    TetrominoType.J to listOf(Pos(-1, -1), Pos(-1, 0), Pos(0, 0), Pos(1, 0)),
+    TetrominoType.L to listOf(Pos(1, -1), Pos(-1, 0), Pos(0, 0), Pos(1, 0)),
+    TetrominoType.O to listOf(Pos(0, 0), Pos(1, 0), Pos(0, 1), Pos(1, 1)),
+    TetrominoType.S to listOf(Pos(0, 0), Pos(1, 0), Pos(-1, 1), Pos(0, 1)),
+    TetrominoType.T to listOf(Pos(-1, 0), Pos(0, 0), Pos(1, 0), Pos(0, 1)),
+    TetrominoType.Z to listOf(Pos(-1, 0), Pos(0, 0), Pos(0, -1), Pos(1, -1))
+)
+
+data class Tetromino(
+    val type: TetrominoType,
+    val x: Int = 4,
+    val y: Int = 0,
+    val rotation: Int = 0
+) {
+    fun getAbsolutePositions(): List<Pos> {
+        val blocks = SHAPES[type] ?: emptyList()
+        return blocks.map { pos ->
+            // Rotace bloku kolem středu
+            val (rx, ry) = when (rotation % 4) {
+                0 -> pos.x to pos.y
+                1 -> -pos.y to pos.x
+                2 -> -pos.x to -pos.y
+                3 -> pos.y to -pos.x
+                else -> pos.x to pos.y
+            }
+            Pos(x + rx, y + ry)
+        }
+    }
+}
+// ---------------------------------------------------------------
+
 // Datová třída reprezentující stav hry
 data class GameState(
     val grid: Array<Array<TetrominoType?>> = Array(20) { Array(10) { null } },
@@ -16,7 +54,7 @@ data class GameState(
     val level: Int = 1,
     val linesCleared: Int = 0,
     val isGameOver: Boolean = false,
-    val isPaused: Boolean = false // <-- PŘIDÁNO: Sledování pauzy
+    val isPaused: Boolean = false
 )
 
 class TetrisEngine {
@@ -42,7 +80,7 @@ class TetrisEngine {
         canHold = true
     }
 
-    // --- NOVÉ FUNKCE PRO PAUZU ---
+    // --- FUNKCE PRO PAUZU ---
     fun togglePause() {
         if (!_gameState.value.isGameOver) {
             _gameState.update { it.copy(isPaused = !it.isPaused) }
@@ -60,10 +98,10 @@ class TetrisEngine {
             _gameState.update { it.copy(isPaused = false) }
         }
     }
-    // ------------------------------
+    // -------------------------
 
     fun moveLeft() {
-        if (_gameState.value.isGameOver || _gameState.value.isPaused) return // <-- KONTROLA PAUZY
+        if (_gameState.value.isGameOver || _gameState.value.isPaused) return
         val current = _gameState.value.currentPiece ?: return
         val newPiece = current.copy(x = current.x - 1)
         if (isValidPosition(newPiece)) {
@@ -72,7 +110,7 @@ class TetrisEngine {
     }
 
     fun moveRight() {
-        if (_gameState.value.isGameOver || _gameState.value.isPaused) return // <-- KONTROLA PAUZY
+        if (_gameState.value.isGameOver || _gameState.value.isPaused) return
         val current = _gameState.value.currentPiece ?: return
         val newPiece = current.copy(x = current.x + 1)
         if (isValidPosition(newPiece)) {
@@ -81,7 +119,7 @@ class TetrisEngine {
     }
 
     fun moveDown() {
-        if (_gameState.value.isGameOver || _gameState.value.isPaused) return // <-- KONTROLA PAUZY
+        if (_gameState.value.isGameOver || _gameState.value.isPaused) return
         val current = _gameState.value.currentPiece ?: return
         val newPiece = current.copy(y = current.y + 1)
 
@@ -93,13 +131,13 @@ class TetrisEngine {
     }
 
     fun rotate() {
-        if (_gameState.value.isGameOver || _gameState.value.isPaused) return // <-- KONTROLA PAUZY
+        if (_gameState.value.isGameOver || _gameState.value.isPaused) return
         val current = _gameState.value.currentPiece ?: return
         val newPiece = current.copy(rotation = (current.rotation + 1) % 4)
         if (isValidPosition(newPiece)) {
             _gameState.update { it.copy(currentPiece = newPiece) }
         } else {
-            // Jednoduchý "wall kick" (odsunutí od zdi)
+            // "Wall kick" (odsunutí od zdi při rotaci)
             val kickedLeft = newPiece.copy(x = newPiece.x - 1)
             if (isValidPosition(kickedLeft)) {
                 _gameState.update { it.copy(currentPiece = kickedLeft) }
@@ -113,7 +151,7 @@ class TetrisEngine {
     }
 
     fun hardDrop() {
-        if (_gameState.value.isGameOver || _gameState.value.isPaused) return // <-- KONTROLA PAUZY
+        if (_gameState.value.isGameOver || _gameState.value.isPaused) return
         var current = _gameState.value.currentPiece ?: return
         while (isValidPosition(current.copy(y = current.y + 1))) {
             current = current.copy(y = current.y + 1)
@@ -123,7 +161,7 @@ class TetrisEngine {
     }
 
     fun hold() {
-        if (_gameState.value.isGameOver || !canHold || _gameState.value.isPaused) return // <-- KONTROLA PAUZY
+        if (_gameState.value.isGameOver || !canHold || _gameState.value.isPaused) return
         val currentType = _gameState.value.currentPiece?.type ?: return
         val holdType = _gameState.value.holdPiece
 
