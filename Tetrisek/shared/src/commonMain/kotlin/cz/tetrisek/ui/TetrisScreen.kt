@@ -5,9 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.Button
-import androidx.compose.material.ButtonDefaults
-import androidx.compose.material.Text
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -160,7 +160,7 @@ fun TetrisScreen(engine: TetrisEngine) {
                             Spacer(modifier = Modifier.height(16.dp))
                             Button(
                                 onClick = { engine.restart() },
-                                colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF333333))
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF333333))
                             ) {
                                 Text("Hrát znovu", color = Color.White)
                             }
@@ -251,7 +251,7 @@ fun PiecePreviewBox(label: String, type: TetrominoType?) {
 fun ControlButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Button(
         onClick = onClick,
-        colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF222222)),
+        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222222)),
         shape = RoundedCornerShape(8.dp),
         modifier = modifier.height(60.dp)
     ) {
