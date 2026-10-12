@@ -7,8 +7,6 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -59,7 +57,7 @@ fun TetrisScreen(engine: TetrisEngine) {
     val textColor = if (isDarkTheme) Color.White else Color.Black
     val surfaceColor = if (isDarkTheme) Color(0xFF111111) else Color.White
     val borderColor = if (isDarkTheme) Color.DarkGray else Color.LightGray
-    val gridBackgroundColor = if (isDarkTheme) Color(0xFF111111) else Color(0xFF222222) // Plocha zůstává vždy tmavší pro kontrast neonů
+    val gridBackgroundColor = if (isDarkTheme) Color(0xFF111111) else Color(0xFF222222)
     val controlButtonColor = if (isDarkTheme) Color(0xFF333333) else Color(0xFFE0E0E0)
 
     // Herní smyčka
@@ -73,7 +71,7 @@ fun TetrisScreen(engine: TetrisEngine) {
         }
     }
 
-    // Aplikace systémových insets (bezpečných zón proti překrytí navigačními tlačítky)
+    // Aplikace systémových insets (bezpečných zón proti překrytí)
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -99,17 +97,17 @@ fun TetrisScreen(engine: TetrisEngine) {
                 ScoreBox("ŘADY", gameState.linesCleared.toString(), textColor)
 
                 IconButton(onClick = { engine.togglePause() }) {
-                    Icon(
-                        imageVector = if (gameState.isPaused) Icons.Filled.PlayArrow else Icons.Filled.Menu,
-                        contentDescription = "Pauza",
-                        tint = textColor
+                    Text(
+                        text = if (gameState.isPaused) "▶" else "⏸",
+                        fontSize = 24.sp,
+                        color = textColor
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // STŘEDNÍ ČÁST: Panely (Next, Hold) vlevo, Hrací plocha vpravo
+            // STŘEDNÍ ČÁST: Panely vlevo, Hrací plocha vpravo
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -126,7 +124,6 @@ fun TetrisScreen(engine: TetrisEngine) {
                     PiecePreviewBox("NÁSLEDUJÍCÍ", gameState.nextPiece, textColor, surfaceColor, borderColor)
                     PiecePreviewBox("SCHRÁNKA", gameState.holdPiece, textColor, surfaceColor, borderColor)
 
-                    // Ruční tlačítko Hold (nahrazuje původní textové)
                     OutlinedButton(
                         onClick = { engine.hold() },
                         modifier = Modifier.fillMaxWidth(),
@@ -143,7 +140,7 @@ fun TetrisScreen(engine: TetrisEngine) {
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .aspectRatio(0.5f) // Poměr stran 10x20
+                        .aspectRatio(0.5f)
                         .border(2.dp, borderColor, RoundedCornerShape(4.dp))
                         .background(gridBackgroundColor)
                 ) {
@@ -151,14 +148,12 @@ fun TetrisScreen(engine: TetrisEngine) {
                         val cellWidth = size.width / 10
                         val cellHeight = size.height / 20
 
-                        // Vykreslení usazených bloků
                         for (y in 0 until 20) {
                             for (x in 0 until 10) {
                                 val type = gameState.grid[y][x]
                                 if (type != null) {
                                     drawBlock(x, y, cellWidth, cellHeight, getColorForType(type))
                                 } else {
-                                    // Mřížka na pozadí
                                     drawRect(
                                         color = Color.DarkGray.copy(alpha = 0.2f),
                                         topLeft = Offset(x * cellWidth, y * cellHeight),
@@ -169,7 +164,6 @@ fun TetrisScreen(engine: TetrisEngine) {
                             }
                         }
 
-                        // Vykreslení "Ducha" (Ghost Piece)
                         val ghost = engine.getGhostPiece()
                         if (ghost != null && !gameState.isPaused) {
                             val color = getColorForType(ghost.type).copy(alpha = 0.4f)
@@ -180,7 +174,6 @@ fun TetrisScreen(engine: TetrisEngine) {
                             }
                         }
 
-                        // Vykreslení aktuálně padající kostky
                         val current = gameState.currentPiece
                         if (current != null && !gameState.isPaused) {
                             val color = getColorForType(current.type)
@@ -192,7 +185,6 @@ fun TetrisScreen(engine: TetrisEngine) {
                         }
                     }
 
-                    // Překryv pro PAUZU
                     if (gameState.isPaused && !gameState.isGameOver) {
                         Box(
                             modifier = Modifier
@@ -204,7 +196,6 @@ fun TetrisScreen(engine: TetrisEngine) {
                         }
                     }
 
-                    // Překryv pro KONEC HRY
                     if (gameState.isGameOver) {
                         Box(
                             modifier = Modifier
@@ -229,7 +220,7 @@ fun TetrisScreen(engine: TetrisEngine) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // SPODNÍ PANEL: Nové grafické ovládání (Ikony místo obdélníků s textem)
+            // SPODNÍ PANEL: Grafické ovládání pomocí textových znaků
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -244,7 +235,7 @@ fun TetrisScreen(engine: TetrisEngine) {
                         .size(64.dp)
                         .background(controlButtonColor, CircleShape)
                 ) {
-                    Icon(Icons.Filled.KeyboardArrowLeft, contentDescription = "Vlevo", tint = textColor, modifier = Modifier.size(40.dp))
+                    Text("◀", fontSize = 28.sp, color = textColor)
                 }
 
                 // Rotace
@@ -254,7 +245,7 @@ fun TetrisScreen(engine: TetrisEngine) {
                         .size(64.dp)
                         .background(controlButtonColor, CircleShape)
                 ) {
-                    Icon(Icons.Filled.Refresh, contentDescription = "Rotace", tint = textColor, modifier = Modifier.size(36.dp))
+                    Text("↻", fontSize = 28.sp, color = textColor)
                 }
 
                 // Šipka dolů (Hard Drop)
@@ -264,7 +255,7 @@ fun TetrisScreen(engine: TetrisEngine) {
                         .size(64.dp)
                         .background(controlButtonColor, CircleShape)
                 ) {
-                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Pád", tint = textColor, modifier = Modifier.size(40.dp))
+                    Text("▼", fontSize = 28.sp, color = textColor)
                 }
 
                 // Šipka doprava
@@ -274,7 +265,7 @@ fun TetrisScreen(engine: TetrisEngine) {
                         .size(64.dp)
                         .background(controlButtonColor, CircleShape)
                 ) {
-                    Icon(Icons.Filled.KeyboardArrowRight, contentDescription = "Vpravo", tint = textColor, modifier = Modifier.size(40.dp))
+                    Text("▶", fontSize = 28.sp, color = textColor)
                 }
             }
         }
