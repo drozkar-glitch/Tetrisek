@@ -224,13 +224,17 @@ class TetrisEngine {
 
     private fun clearLines(grid: Array<Array<TetrominoType?>>): Int {
         var linesCleared = 0
-        for (y in grid.indices.reversed()) {
+        var y = grid.lastIndex
+        while (y >= 0) {
             if (grid[y].all { it != null }) {
                 linesCleared++
                 for (i in y downTo 1) {
                     grid[i] = grid[i - 1].clone()
                 }
                 grid[0] = Array(10) { null }
+                // y nesnižujeme, protože na aktuální index y spadl řádek shora a musíme ho také zkontrolovat
+            } else {
+                y--
             }
         }
         return linesCleared
