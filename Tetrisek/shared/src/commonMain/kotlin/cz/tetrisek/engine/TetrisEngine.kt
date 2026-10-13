@@ -30,7 +30,6 @@ data class Tetromino(
     fun getAbsolutePositions(): List<Pos> {
         val blocks = SHAPES[type] ?: emptyList()
         return blocks.map { pos ->
-            // Rotace bloku kolem středu
             val (rx, ry) = when (rotation % 4) {
                 0 -> pos.x to pos.y
                 1 -> -pos.y to pos.x
@@ -43,7 +42,6 @@ data class Tetromino(
     }
 }
 
-// Datová třída reprezentující stav hry
 data class GameState(
     val grid: Array<Array<TetrominoType?>> = Array(20) { Array(10) { null } },
     val currentPiece: Tetromino? = null,
@@ -131,13 +129,14 @@ class TetrisEngine {
         if (_gameState.value.isGameOver || _gameState.value.isPaused) return
         val current = _gameState.value.currentPiece ?: return
 
-        // Změna směru rotace (přidáním 3 namísto 1 získáme rotaci proti směru hodinových ručiček)
-        val newPiece = current.copy(rotation = (current.rotation + 3) % 4)
+        // ZDE SE URČUJE SMĚR ROTACE
+        // + 1 = Po směru hodinových ručiček (CW) - mělo by sedět s ikonou ↻
+        // Kdyby to z nějakého důvodu pocitově stále nesedělo, změň číslo 1 na 3 (což je CCW).
+        val newPiece = current.copy(rotation = (current.rotation + 1) % 4)
 
         if (isValidPosition(newPiece)) {
             _gameState.update { it.copy(currentPiece = newPiece) }
         } else {
-            // "Wall kick" (odsunutí od zdi)
             val kickedLeft = newPiece.copy(x = newPiece.x - 1)
             if (isValidPosition(kickedLeft)) {
                 _gameState.update { it.copy(currentPiece = kickedLeft) }
