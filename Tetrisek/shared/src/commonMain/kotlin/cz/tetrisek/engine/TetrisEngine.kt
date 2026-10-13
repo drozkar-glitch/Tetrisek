@@ -6,20 +6,19 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlin.random.Random
 
-// --- DEFINICE KOSTEK A TVARŮ (Konečně opraveno podle standardu!) ---
+// --- DEFINICE KOSTEK A TVARŮ ---
 enum class TetrominoType { I, J, L, O, S, T, Z }
 
 data class Pos(val x: Int, val y: Int)
 
-// Souřadnice jsou nyní nastaveny přesně podle oficiálního SRS (Super Rotation System)
 val SHAPES = mapOf(
-    TetrominoType.I to listOf(Pos(-1, 0), Pos(0, 0), Pos(1, 0), Pos(2, 0)),  // Dlouhá čára ležící
-    TetrominoType.J to listOf(Pos(-1, -1), Pos(-1, 0), Pos(0, 0), Pos(1, 0)), // Modré J (zobáček vlevo nahoře)
-    TetrominoType.L to listOf(Pos(1, -1), Pos(-1, 0), Pos(0, 0), Pos(1, 0)),  // Oranžové L (zobáček vpravo nahoře)
-    TetrominoType.O to listOf(Pos(0, 0), Pos(1, 0), Pos(0, 1), Pos(1, 1)),    // Žlutý čtverec
-    TetrominoType.S to listOf(Pos(0, 0), Pos(1, 0), Pos(-1, 1), Pos(0, 1)),   // Zelené S (schod doprava)
-    TetrominoType.T to listOf(Pos(0, -1), Pos(-1, 0), Pos(0, 0), Pos(1, 0)),  // Fialové T (špička nahoře!)
-    TetrominoType.Z to listOf(Pos(-1, 0), Pos(0, 0), Pos(0, 1), Pos(1, 1))    // Červené Z (schod doleva - opraveno!)
+    TetrominoType.I to listOf(Pos(-1, 0), Pos(0, 0), Pos(1, 0), Pos(2, 0)),
+    TetrominoType.J to listOf(Pos(-1, -1), Pos(-1, 0), Pos(0, 0), Pos(1, 0)),
+    TetrominoType.L to listOf(Pos(1, -1), Pos(-1, 0), Pos(0, 0), Pos(1, 0)),
+    TetrominoType.O to listOf(Pos(0, 0), Pos(1, 0), Pos(0, 1), Pos(1, 1)),
+    TetrominoType.S to listOf(Pos(0, 0), Pos(1, 0), Pos(-1, 1), Pos(0, 1)),
+    TetrominoType.T to listOf(Pos(0, -1), Pos(-1, 0), Pos(0, 0), Pos(1, 0)),
+    TetrominoType.Z to listOf(Pos(-1, 0), Pos(0, 0), Pos(0, 1), Pos(1, 1))
 )
 
 data class Tetromino(
@@ -31,12 +30,14 @@ data class Tetromino(
     fun getAbsolutePositions(): List<Pos> {
         val blocks = SHAPES[type] ?: emptyList()
         return blocks.map { pos ->
-            // Správná matematická rotace
+            // --- OPRAVENÁ ROTACE ---
+            // Změna prohozením znamének kvůli ose Y, která na displeji roste dolů.
+            // Teď se to bude vizuálně točit po směru hodinových ručiček.
             val (rx, ry) = when (rotation % 4) {
                 0 -> pos.x to pos.y
-                1 -> -pos.y to pos.x
+                1 -> pos.y to -pos.x // Dříve to bylo -pos.y to pos.x
                 2 -> -pos.x to -pos.y
-                3 -> pos.y to -pos.x
+                3 -> -pos.y to pos.x // Dříve to bylo pos.y to -pos.x
                 else -> pos.x to pos.y
             }
             Pos(x + rx, y + ry)
@@ -44,7 +45,6 @@ data class Tetromino(
     }
 }
 
-// Datová třída reprezentující stav hry
 data class GameState(
     val grid: Array<Array<TetrominoType?>> = Array(20) { Array(10) { null } },
     val currentPiece: Tetromino? = null,
@@ -132,13 +132,11 @@ class TetrisEngine {
         if (_gameState.value.isGameOver || _gameState.value.isPaused) return
         val current = _gameState.value.currentPiece ?: return
 
-        // Rotace po směru hodinových ručiček (+1)
         val newPiece = current.copy(rotation = (current.rotation + 1) % 4)
 
         if (isValidPosition(newPiece)) {
             _gameState.update { it.copy(currentPiece = newPiece) }
         } else {
-            // Jednoduchý "Wall kick" (odsunutí od zdi)
             val kickedLeft = newPiece.copy(x = newPiece.x - 1)
             if (isValidPosition(kickedLeft)) {
                 _gameState.update { it.copy(currentPiece = kickedLeft) }
