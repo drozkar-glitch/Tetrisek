@@ -78,8 +78,8 @@ fun TetrisScreen(engine: TetrisEngine) {
 
     val textColor = if (isDarkTheme) Color.White else Color(0xFF1A1A24)
     val surfaceColor = if (isDarkTheme) Color(0xFF1A1A24).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.8f)
-    val borderColor = if (isDarkTheme) Color.DarkGray else Color.LightGray
-    val gridBackgroundColor = if (isDarkTheme) Color(0xFF05050A).copy(alpha = 0.7f) else Color(0xFF1A1A24).copy(alpha = 0.9f)
+    val borderColor = if (isDarkTheme) Color(0xFF4A527A) else Color.LightGray
+    val gridBackgroundColor = if (isDarkTheme) Color(0xFF1E2238).copy(alpha = 0.85f) else Color(0xFF282C44).copy(alpha = 0.9f)
     val controlButtonColor = if (isDarkTheme) Color(0xFF2A2A35).copy(alpha = 0.8f) else Color(0xFFE0E0E0).copy(alpha = 0.9f)
     val overlayColor = if (isDarkTheme) Color(0xFF0A0A1A).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.85f)
 
@@ -262,7 +262,7 @@ fun TetrisScreen(engine: TetrisEngine) {
                     modifier = Modifier
                         .fillMaxHeight()
                         .aspectRatio(0.5f)
-                        .border(2.dp, borderColor.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                        .border(2.dp, borderColor.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
                         .background(gridBackgroundColor, RoundedCornerShape(8.dp))
                 ) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
@@ -273,7 +273,7 @@ fun TetrisScreen(engine: TetrisEngine) {
                         for (y in 0 until 20) {
                             for (x in 0 until 10) {
                                 drawRect(
-                                    color = Color.White.copy(alpha = 0.05f), // Velmi jemná mřížka
+                                    color = Color.White.copy(alpha = 0.12f), // Výraznější mřížka
                                     topLeft = Offset(x * cellWidth, y * cellHeight),
                                     size = Size(cellWidth, cellHeight),
                                     style = Stroke(width = 1f)
