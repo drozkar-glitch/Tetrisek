@@ -54,7 +54,9 @@ data class GameState(
     val level: Int = 1,
     val linesCleared: Int = 0,
     val isGameOver: Boolean = false,
-    val isPaused: Boolean = false
+    val isPaused: Boolean = false,
+    val clearedRows: List<Int> = emptyList(),
+    val clearTrigger: Int = 0
 )
 
 class TetrisEngine {
@@ -197,6 +199,9 @@ class TetrisEngine {
             }
         }
 
+        // Zjištění indexů plných řad před jejich smazáním pro efekt probliknutí
+        val fullRows = (0 until 20).filter { y -> newGrid[y].all { it != null } }
+
         val clearedLines = clearLines(newGrid)
         val newScore = _gameState.value.score + calculateScore(clearedLines, _gameState.value.level)
         val newLinesCleared = _gameState.value.linesCleared + clearedLines
@@ -209,7 +214,9 @@ class TetrisEngine {
                 nextPiece = generateRandomPieceType(),
                 score = newScore,
                 level = newLevel,
-                linesCleared = newLinesCleared
+                linesCleared = newLinesCleared,
+                clearedRows = fullRows,
+                clearTrigger = if (fullRows.isNotEmpty()) it.clearTrigger + 1 else it.clearTrigger
             )
         }
         canHold = true

@@ -51,6 +51,10 @@ fun getColorForType(type: TetrominoType?): Color {
 fun TetrisScreen(engine: TetrisEngine) {
     val gameState by engine.gameState.collectAsState()
     val isDarkTheme = isSystemInDarkTheme()
+    val haptics = rememberHaptics()
+
+    // Sledování řádků, které mají probliknout
+    var flashingRows by remember { mutableStateOf<List<Int>>(emptyList()) }
 
     // --- WOW EFEKT: Hluboký gradient na pozadí místo jedné ploché barvy ---
     val backgroundBrush = if (isDarkTheme) {
@@ -75,6 +79,16 @@ fun TetrisScreen(engine: TetrisEngine) {
     val gridBackgroundColor = if (isDarkTheme) Color(0xFF05050A).copy(alpha = 0.7f) else Color(0xFF1A1A24).copy(alpha = 0.9f)
     val controlButtonColor = if (isDarkTheme) Color(0xFF2A2A35).copy(alpha = 0.8f) else Color(0xFFE0E0E0).copy(alpha = 0.9f)
     val overlayColor = if (isDarkTheme) Color(0xFF0A0A1A).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.85f)
+
+    // Spuštění záblesku a silné vibrace při smazání řady
+    LaunchedEffect(gameState.clearTrigger) {
+        if (gameState.clearTrigger > 0 && gameState.clearedRows.isNotEmpty()) {
+            haptics.heavy()
+            flashingRows = gameState.clearedRows
+            delay(150)
+            flashingRows = emptyList()
+        }
+    }
 
     LaunchedEffect(gameState.isGameOver, gameState.level, gameState.isPaused) {
         if (!gameState.isGameOver && !gameState.isPaused) {
@@ -110,7 +124,10 @@ fun TetrisScreen(engine: TetrisEngine) {
                 ScoreBox("LEVEL", gameState.level.toString(), textColor)
                 ScoreBox("ŘADY", gameState.linesCleared.toString(), textColor)
 
-                IconButton(onClick = { engine.togglePause() }) {
+                IconButton(onClick = {
+                    haptics.light()
+                    engine.togglePause()
+                }) {
                     Text(
                         text = if (gameState.isPaused) "▶" else "⏸",
                         fontSize = 24.sp,
@@ -139,7 +156,10 @@ fun TetrisScreen(engine: TetrisEngine) {
                     PiecePreviewBox("SCHRÁNKA", gameState.holdPiece, textColor, surfaceColor, borderColor)
 
                     OutlinedButton(
-                        onClick = { engine.hold() },
+                        onClick = {
+                            haptics.light()
+                            engine.hold()
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = textColor, containerColor = surfaceColor)
@@ -205,6 +225,22 @@ fun TetrisScreen(engine: TetrisEngine) {
                                 }
                             }
                         }
+
+                        // Vykreslení bílého neonového záblesku přes smazané řádky
+                        for (rowY in flashingRows) {
+                            drawRoundRect(
+                                color = colorCyan.copy(alpha = 0.4f),
+                                topLeft = Offset(0f, rowY * cellHeight - 4f),
+                                size = Size(size.width, cellHeight + 8f),
+                                cornerRadius = CornerRadius(4f, 4f)
+                            )
+                            drawRoundRect(
+                                color = Color.White.copy(alpha = 0.9f),
+                                topLeft = Offset(0f, rowY * cellHeight),
+                                size = Size(size.width, cellHeight),
+                                cornerRadius = CornerRadius(4f, 4f)
+                            )
+                        }
                     }
 
                     if (gameState.isPaused && !gameState.isGameOver) {
@@ -229,7 +265,10 @@ fun TetrisScreen(engine: TetrisEngine) {
                                 Text("KONEC HRY", color = colorRed, fontSize = 28.sp, fontWeight = FontWeight.Bold)
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Button(
-                                    onClick = { engine.restart() },
+                                    onClick = {
+                                        haptics.heavy()
+                                        engine.restart()
+                                    },
                                     colors = ButtonDefaults.buttonColors(containerColor = colorCyan, contentColor = Color.Black)
                                 ) {
                                     Text("Hrát znovu", fontWeight = FontWeight.Bold)
@@ -251,22 +290,34 @@ fun TetrisScreen(engine: TetrisEngine) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
-                    onClick = { engine.moveLeft() },
+                    onClick = {
+                        haptics.light()
+                        engine.moveLeft()
+                    },
                     modifier = Modifier.size(64.dp).background(controlButtonColor, CircleShape)
                 ) { Text("◀", fontSize = 28.sp, color = textColor) }
 
                 IconButton(
-                    onClick = { engine.rotate() },
+                    onClick = {
+                        haptics.light()
+                        engine.rotate()
+                    },
                     modifier = Modifier.size(64.dp).background(controlButtonColor, CircleShape)
                 ) { Text("↻", fontSize = 28.sp, color = textColor) }
 
                 IconButton(
-                    onClick = { engine.hardDrop() },
+                    onClick = {
+                        haptics.heavy()
+                        engine.hardDrop()
+                    },
                     modifier = Modifier.size(64.dp).background(controlButtonColor, CircleShape)
                 ) { Text("▼", fontSize = 28.sp, color = textColor) }
 
                 IconButton(
-                    onClick = { engine.moveRight() },
+                    onClick = {
+                        haptics.light()
+                        engine.moveRight()
+                    },
                     modifier = Modifier.size(64.dp).background(controlButtonColor, CircleShape)
                 ) { Text("▶", fontSize = 28.sp, color = textColor) }
             }
