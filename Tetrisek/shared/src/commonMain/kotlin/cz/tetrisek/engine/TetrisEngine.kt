@@ -9,6 +9,12 @@ import kotlin.random.Random
 // --- DEFINICE KOSTEK A TVARŮ ---
 enum class TetrominoType { I, J, L, O, S, T, Z }
 
+enum class Difficulty(val label: String) {
+    EASY("Lehká"),
+    MEDIUM("Střední"),
+    HARD("Těžká")
+}
+
 data class Pos(val x: Int, val y: Int)
 
 val SHAPES = mapOf(
@@ -52,6 +58,8 @@ data class GameState(
     val holdPiece: TetrominoType? = null,
     val score: Int = 0,
     val level: Int = 1,
+    val startLevel: Int = 1,
+    val difficulty: Difficulty = Difficulty.MEDIUM,
     val linesCleared: Int = 0,
     val isGameOver: Boolean = false,
     val isPaused: Boolean = false,
@@ -69,17 +77,55 @@ class TetrisEngine {
         startNewGame()
     }
 
-    fun startNewGame() {
+    fun startNewGame(
+        difficulty: Difficulty = _gameState.value.difficulty,
+        startLevel: Int = _gameState.value.startLevel
+    ) {
         val firstPiece = generateRandomPieceType()
         val nextPieceType = generateRandomPieceType()
+        val initialGrid = Array(20) { Array<TetrominoType?>(10) { null } }
+
+        if (difficulty == Difficulty.HARD) {
+            val types = TetrominoType.entries.toTypedArray()
+            for (y in 16..19) {
+                for (x in 0 until 10) {
+                    if (Random.nextFloat() < 0.6f) {
+                        initialGrid[y][x] = types[Random.nextInt(types.size)]
+                    }
+                }
+                // Pojistka, aby řada nebyla prázdná a zároveň nikdy nebyla kompletně plná
+                initialGrid[y][Random.nextInt(10)] = types[Random.nextInt(types.size)]
+                initialGrid[y][Random.nextInt(10)] = null
+            }
+        }
 
         _gameState.update {
             GameState(
+                grid = initialGrid,
                 currentPiece = Tetromino(firstPiece),
-                nextPiece = nextPieceType
+                nextPiece = nextPieceType,
+                level = startLevel,
+                startLevel = startLevel,
+                difficulty = difficulty
             )
         }
         canHold = true
+    }
+
+    fun cycleDifficulty() {
+        val nextDifficulty = when (_gameState.value.difficulty) {
+            Difficulty.EASY -> Difficulty.MEDIUM
+            Difficulty.MEDIUM -> Difficulty.HARD
+            Difficulty.HARD -> Difficulty.EASY
+        }
+        startNewGame(difficulty = nextDifficulty, startLevel = _gameState.value.startLevel)
+    }
+
+    fun changeStartLevel(delta: Int) {
+        val newStartLevel = (_gameState.value.startLevel + delta).coerceIn(1, 15)
+        if (newStartLevel != _gameState.value.startLevel) {
+            startNewGame(difficulty = _gameState.value.difficulty, startLevel = newStartLevel)
+        }
     }
 
     fun togglePause() {
@@ -177,6 +223,7 @@ class TetrisEngine {
     }
 
     fun getGhostPiece(): Tetromino? {
+        if (_gameState.value.difficulty == Difficulty.HARD) return null
         val current = _gameState.value.currentPiece ?: return null
         var ghost = current.copy()
         while (isValidPosition(ghost.copy(y = ghost.y + 1))) {
@@ -205,7 +252,7 @@ class TetrisEngine {
         val clearedLines = clearLines(newGrid)
         val newScore = _gameState.value.score + calculateScore(clearedLines, _gameState.value.level)
         val newLinesCleared = _gameState.value.linesCleared + clearedLines
-        val newLevel = (newLinesCleared / 10) + 1
+        val newLevel = _gameState.value.startLevel + (newLinesCleared / 10)
 
         _gameState.update {
             it.copy(
@@ -265,7 +312,9 @@ class TetrisEngine {
     }
 
     fun restart() {
-        _gameState.value = GameState()
-        startNewGame()
+        startNewGame(
+            difficulty = _gameState.value.difficulty,
+            startLevel = _gameState.value.startLevel
+        )
     }
 }

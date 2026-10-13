@@ -3,6 +3,7 @@ package cz.tetrisek.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -11,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -21,6 +23,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cz.tetrisek.engine.Difficulty
 import cz.tetrisek.engine.SHAPES
 import cz.tetrisek.engine.TetrisEngine
 import cz.tetrisek.engine.TetrominoType
@@ -90,10 +93,14 @@ fun TetrisScreen(engine: TetrisEngine) {
         }
     }
 
-    LaunchedEffect(gameState.isGameOver, gameState.level, gameState.isPaused) {
+    LaunchedEffect(gameState.isGameOver, gameState.level, gameState.isPaused, gameState.difficulty) {
         if (!gameState.isGameOver && !gameState.isPaused) {
             while (true) {
-                val speed = (1000 - (gameState.level - 1) * 50).coerceAtLeast(100).toLong()
+                val speed = when (gameState.difficulty) {
+                    Difficulty.EASY -> (1000 - (gameState.level - 1) * 35).coerceAtLeast(150).toLong()
+                    Difficulty.MEDIUM -> (1000 - (gameState.level - 1) * 50).coerceAtLeast(100).toLong()
+                    Difficulty.HARD -> (800 - (gameState.level - 1) * 55).coerceAtLeast(70).toLong()
+                }
                 delay(speed)
                 engine.moveDown()
             }
@@ -165,6 +172,86 @@ fun TetrisScreen(engine: TetrisEngine) {
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = textColor, containerColor = surfaceColor)
                     ) {
                         Text("Ulož", fontSize = 12.sp)
+                    }
+
+                    // Volba obtížnosti pod tlačítkem Ulož
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "OBTÍŽNOST",
+                            color = textColor.copy(alpha = 0.7f),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        OutlinedButton(
+                            onClick = {
+                                haptics.light()
+                                engine.cycleDifficulty()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = textColor, containerColor = surfaceColor)
+                        ) {
+                            Text(gameState.difficulty.label, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    // Volba startovního levelu
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "START LVL",
+                            color = textColor.copy(alpha = 0.7f),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(36.dp)
+                                .border(1.dp, borderColor.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                .background(surfaceColor, RoundedCornerShape(8.dp)),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .width(26.dp)
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp))
+                                    .clickable {
+                                        haptics.light()
+                                        engine.changeStartLevel(-1)
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("-", color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            Text(
+                                text = gameState.startLevel.toString(),
+                                color = textColor,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Box(
+                                modifier = Modifier
+                                    .width(26.dp)
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp))
+                                    .clickable {
+                                        haptics.light()
+                                        engine.changeStartLevel(1)
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("+", color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
                 }
 
