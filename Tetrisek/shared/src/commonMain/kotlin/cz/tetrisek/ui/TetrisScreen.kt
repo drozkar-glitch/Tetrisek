@@ -55,6 +55,23 @@ fun TetrisScreen(engine: TetrisEngine) {
     val gameState by engine.gameState.collectAsState()
     val isDarkTheme = isSystemInDarkTheme()
     val haptics = rememberHaptics()
+    val scoreStorage = rememberScoreStorage()
+
+    // Sledování rekordu pro právě vybranou obtížnost
+    var highScore by remember(gameState.difficulty) {
+        mutableStateOf(scoreStorage.getHighScore(gameState.difficulty))
+    }
+
+    // Živé ukládání rekordu při jeho překonání
+    LaunchedEffect(gameState.score, gameState.difficulty) {
+        val storedHigh = scoreStorage.getHighScore(gameState.difficulty)
+        if (gameState.score > storedHigh) {
+            scoreStorage.saveHighScore(gameState.difficulty, gameState.score)
+            highScore = gameState.score
+        } else {
+            highScore = storedHigh
+        }
+    }
 
     // Sledování řádků, které mají probliknout
     var flashingRows by remember { mutableStateOf<List<Int>>(emptyList()) }
@@ -128,6 +145,7 @@ fun TetrisScreen(engine: TetrisEngine) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 ScoreBox("SKÓRE", gameState.score.toString(), textColor)
+                ScoreBox("REKORD", highScore.toString(), textColor)
                 ScoreBox("LEVEL", gameState.level.toString(), textColor)
                 ScoreBox("ŘADY", gameState.linesCleared.toString(), textColor)
 
